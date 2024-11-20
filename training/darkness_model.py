@@ -29,6 +29,12 @@ def preprocess_image_dark_blue(img_path):
     img = np.stack((img * 0.8, img * 0.8, img), axis=-1)
     return img
 
+def add_snowfall_noise(img, noise_factor=0.1):
+    noise = np.random.normal(loc=0.0, scale=noise_factor, size=img.shape)
+    img = img + noise
+    img = np.clip(img, 0.0, 1.0)
+    return img
+
 images = []
 labels = []
 
@@ -37,6 +43,7 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
         img = preprocess_image_dark_blue(img_path)
+        img = add_snowfall_noise(img)
         images.append(img)
         labels.append(label_id)
 
@@ -59,11 +66,11 @@ X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2,
 print(f"Training Data Shape: {X_train.shape}, Validation Data Shape: {X_val.shape}")
 
 datagen = ImageDataGenerator(
-    width_shift_range=0.1,
-    height_shift_range=0.1,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
     zoom_range=0.2,
-    shear_range=0.1,
-    rotation_range=10.
+    shear_range=0.2,
+    rotation_range=20.
 )
 datagen.fit(X_train)
 
@@ -84,13 +91,13 @@ model = Sequential([
     Dense(len(labels_df), activation='softmax')
 ])
 
-model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 model.summary()
 
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=50
+    epochs=65
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)

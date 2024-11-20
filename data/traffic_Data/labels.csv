@@ -39,21 +39,21 @@ ClassId,Name
 37,Children crossing
 38,Dangerous curve to the left
 39,Dangerous curve to the right
-40,Unknown1
-41,Unknown2
-42,Unknown3
+40,Steep slope
+41,Steep uphill
+42,Slow traffic
 43,Go right or straight
 44,Go left or straight
-45,Unknown4
+45,Residential area
 46,ZigZag Curve
 47,Train Crossing
 48,Under Construction
-49,Unknown5
+49,High voltage
 50,Fences
 51,Heavy Vehicle Accidents
-52,Unknown6
+52,Chinese stop sign
 53,Give Way
 54,No stopping
 55,No entry
-56,Unknown7
-57,Unknown8
+56,Yield
+57,Inspection

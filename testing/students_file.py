@@ -20,16 +20,16 @@ class TestTrafficSigns:
         img = img_to_array(img) / 255.0
         return img
 
-
     def _rotate_image(self, img, angle=45):
         """
-        Rotates the image by the given angle.
+        Example transformation: rotates the image by the given angle.
         """
         return rotate(img, angle, reshape=False)
 
     '''
 
-    Add more methods as needed for testing the model with different variations of images,
+    Add more methods as needed for testing the model with different variations of images
+
 
     '''
 
@@ -51,8 +51,6 @@ class TestTrafficSigns:
         test_images = []
         test_image_names = []
         true_labels = []
-
-        # Load and preprocess test images
         for img_name in os.listdir(self.test_dir):
             img_path = os.path.join(self.test_dir, img_name)
             img = self._load_and_preprocess_image(img_path)
@@ -69,7 +67,7 @@ class TestTrafficSigns:
         self._calculate_f1_score(true_labels, original_preds, "Original")
         self._display_images(test_images, "Original")
 
-        # example: Testing with rotated images
+        # example: testing with rotated images
         print("\nEvaluating with rotated images:")
         rotated_images = [self._rotate_image(img) for img in test_images]
         rotated_preds = self._predict(np.array(rotated_images))

@@ -18,16 +18,19 @@ img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
 
-def preprocess_image_with_noise(img_path):
+def preprocess_image_with_noise(img_path, noise_probability=0.5):
     img = cv2.imread(img_path)
     img = cv2.resize(img, img_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.equalizeHist(img)
     img = img / 255.0
     img = np.stack((img,)*3, axis=-1)
-    noise = np.random.normal(loc=0.0, scale=0.2, size=img.shape)
-    img = img + noise
-    img = np.clip(img, 0.0, 1.0)
+    
+    if np.random.rand() < noise_probability:
+        noise = np.random.normal(loc=0.0, scale=0.2, size=img.shape)
+        img = img + noise
+        img = np.clip(img, 0.0, 1.0)
+    
     return img
 
 images = []
@@ -37,7 +40,7 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_with_noise(img_path)
+        img = preprocess_image_with_noise(img_path, noise_probability=0.5) 
         images.append(img)
         labels.append(label_id)
 
@@ -48,14 +51,12 @@ labels = to_categorical(labels)
 
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-print(f"Training Data Shape: {X_train.shape}, Validation Data Shape: {X_val.shape}")
-
 datagen = ImageDataGenerator(
-    width_shift_range=0.1,
-    height_shift_range=0.1,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
     zoom_range=0.2,
-    shear_range=0.1,
-    rotation_range=10.
+    shear_range=0.2,
+    rotation_range=20.
 )
 datagen.fit(X_train)
 
@@ -76,13 +77,13 @@ model = Sequential([
     Dense(len(labels_df), activation='softmax')
 ])
 
-model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 model.summary()
 
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=50
+    epochs=65
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
@@ -97,7 +98,7 @@ test_image_names = []
 
 for img_name in os.listdir(test_dir):
     img_path = os.path.join(test_dir, img_name)
-    img = preprocess_image_with_noise(img_path)
+    img = img_path
     test_images.append(img)
     test_image_names.append(img_name)
     class_id = int(img_name.split('_')[0])

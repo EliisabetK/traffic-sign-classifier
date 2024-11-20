@@ -59,11 +59,11 @@ X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2,
 print(f"Training Data Shape: {X_train.shape}, Validation Data Shape: {X_val.shape}")
 
 datagen = ImageDataGenerator(
-    width_shift_range=0.1,
-    height_shift_range=0.1,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
     zoom_range=0.2,
-    shear_range=0.1,
-    rotation_range=10.
+    shear_range=0.2,
+    rotation_range=20.
 )
 datagen.fit(X_train)
 
@@ -77,20 +77,23 @@ model = Sequential([
     Conv2D(256, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
-    Dense(512, activation='relu'),
-    Dropout(0.5),
+    Dense(512, activation='relu'), 
+    Dropout(0.5),            
     Dense(256, activation='relu'),
-    Dropout(0.5),
+    Dropout(0.5),                  
     Dense(len(labels_df), activation='softmax')
 ])
 
-model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=Adam(learning_rate=0.001), 
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+
 model.summary()
 
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=50
+    epochs=65
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
@@ -105,7 +108,7 @@ test_image_names = []
 
 for img_name in os.listdir(test_dir):
     img_path = os.path.join(test_dir, img_name)
-    img = preprocess_image_bright(img_path)
+    img = img_path
     test_images.append(img)
     test_image_names.append(img_name)
     class_id = int(img_name.split('_')[0]) 
