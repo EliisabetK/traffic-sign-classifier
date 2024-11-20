@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'traffic_sign_brightness_model.h5'
+model_save_path = 'models/brightness.h5'
 
 img_size = (64, 64)
 
@@ -73,6 +73,8 @@ model = Sequential([
     Conv2D(64, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+    Conv2D(256, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
     Dense(512, activation='relu'),

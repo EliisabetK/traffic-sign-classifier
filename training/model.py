@@ -8,14 +8,22 @@ from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, Conv
 from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
+from sklearn.metrics import f1_score
+from tensorflow.keras.callbacks import EarlyStopping
 import cv2
+import itertools
+import os
+import warnings
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+warnings.filterwarnings("ignore", category=UserWarning, module="keras")
 
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'traffic_sign_classifier_model.h5'
-
-img_size = (64, 64) 
+model_save_path = 'models/best_model.h5'
+img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
 
@@ -25,12 +33,11 @@ def preprocess_image(img_path):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.equalizeHist(img)
     img = img / 255.0
-    img = np.stack((img,)*3, axis=-1) 
+    img = np.stack((img,) * 3, axis=-1) 
     return img
 
 images = []
 labels = []
-
 for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
@@ -46,48 +53,73 @@ labels = to_categorical(labels)
 
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-print(f"Training Data Shape: {X_train.shape}, Validation Data Shape: {X_val.shape}")
-
 datagen = ImageDataGenerator(
-    width_shift_range=0.1,
-    height_shift_range=0.1,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
     zoom_range=0.2,
-    shear_range=0.1,
-    rotation_range=10.
+    shear_range=0.2,
+    rotation_range=20.
 )
 datagen.fit(X_train)
 
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
-    MaxPooling2D(pool_size=(2, 2)),
-    Conv2D(64, (3, 3), activation='relu'),
-    MaxPooling2D(pool_size=(2, 2)),
-    Conv2D(128, (3, 3), activation='relu'),
-    MaxPooling2D(pool_size=(2, 2)),
-    Conv2D(256, (3, 3), activation='relu'),
-    MaxPooling2D(pool_size=(2, 2)),
-    Flatten(),
-    Dense(512, activation='relu'),
-    Dropout(0.5),
-    Dense(256, activation='relu'),
-    Dropout(0.5),
-    Dense(len(labels_df), activation='softmax')
-])
+param_grid = {
+    'conv_filters': [32, 64],
+    'dense_units': [512, 1024],
+    'dropout_rate': [0.3, 0.5],
+    'learning_rate': [0.001, 0.0001],
+}
+param_combinations = list(itertools.product(*param_grid.values()))
 
-model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
-model.summary()
+best_accuracy = 0
+best_f1_score = 0
+best_model = None
+best_params = None
 
-history = model.fit(
-    datagen.flow(X_train, y_train, batch_size=32),
-    validation_data=(X_val, y_val),
-    epochs=50
-)
+for params in param_combinations:
+    conv_filters, dense_units, dropout_rate, learning_rate = params
+    
+    model = Sequential([
+        Conv2D(conv_filters, (3, 3), activation='relu', input_shape=(64, 64, 3)),
+        MaxPooling2D(pool_size=(2, 2)),
+        Conv2D(conv_filters * 2, (3, 3), activation='relu'),
+        MaxPooling2D(pool_size=(2, 2)),
+        Conv2D(conv_filters * 4, (3, 3), activation='relu'),
+        MaxPooling2D(pool_size=(2, 2)),
+        Flatten(),
+        Dense(dense_units, activation='relu'),
+        Dropout(dropout_rate),
+        Dense(dense_units // 2, activation='relu'),
+        Dropout(dropout_rate),
+        Dense(len(labels_df), activation='softmax'),
+    ])
+    
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    
+    history = model.fit(
+        datagen.flow(X_train, y_train, batch_size=32),
+        validation_data=(X_val, y_val),
+        epochs=50,
+        callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)],
+        verbose=0
+    )
+    
+    val_loss, val_accuracy = model.evaluate(X_val, y_val, verbose=0)
+    y_val_pred = np.argmax(model.predict(X_val), axis=1)
+    y_val_true = np.argmax(y_val, axis=1)
+    f1 = f1_score(y_val_true, y_val_pred, average='weighted')
+    
+    print(f"Params: {params}, Val Accuracy: {val_accuracy*100:.2f}%, F1 Score: {f1:.2f}")
+    
+    if val_accuracy > best_accuracy or (val_accuracy == best_accuracy and f1 > best_f1_score):
+        best_accuracy = val_accuracy
+        best_f1_score = f1
+        best_model = model
+        best_params = params
 
-val_loss, val_accuracy = model.evaluate(X_val, y_val)
-print(f"Validation Accuracy: {val_accuracy*100:.2f}%")
-
-model.save(model_save_path)
-print(f"Model saved to {model_save_path}")
+best_model.save(model_save_path)
+print(f"Best Model saved to {model_save_path} with accuracy {best_accuracy*100:.2f}% and F1 score {best_f1_score:.2f}")
+print(f"Best Parameters: {best_params}")
 
 test_images = []
 test_labels = []
@@ -104,8 +136,8 @@ for img_name in os.listdir(test_dir):
 test_images = np.array(test_images)
 test_labels = np.array(test_labels)
 
-predictions = model.predict(test_images)
+predictions = best_model.predict(test_images)
 predicted_labels = np.argmax(predictions, axis=1)
-
 accuracy = np.mean(predicted_labels == test_labels)
-print(f"Test Accuracy: {accuracy*100:.2f}%")
+
+print(f"Test Accuracy of Best Model: {accuracy*100:.2f}%")

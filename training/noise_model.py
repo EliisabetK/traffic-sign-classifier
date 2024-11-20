@@ -12,7 +12,7 @@ import cv2
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'traffic_sign_noise_model.h5'
+model_save_path = 'models/noise.h5'
 
 img_size = (64, 64)
 
@@ -25,7 +25,7 @@ def preprocess_image_with_noise(img_path):
     img = cv2.equalizeHist(img)
     img = img / 255.0
     img = np.stack((img,)*3, axis=-1)
-    noise = np.random.normal(loc=0.0, scale=0.1, size=img.shape)
+    noise = np.random.normal(loc=0.0, scale=0.2, size=img.shape)
     img = img + noise
     img = np.clip(img, 0.0, 1.0)
     return img
@@ -65,6 +65,8 @@ model = Sequential([
     Conv2D(64, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+    Conv2D(256, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
     Dense(512, activation='relu'),

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'traffic_sign_darkness_model.h5'
+model_save_path = 'models/darkness.h5'
 
 img_size = (64, 64)
 
@@ -24,9 +24,9 @@ def preprocess_image_dark_blue(img_path):
     img = cv2.resize(img, img_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = cv2.equalizeHist(img)
-    img = img * 0.4  # Simulate darkness by reducing brightness
+    img = img * 0.4
     img = img / 255.0
-    img = np.stack((img * 0.8, img * 0.8, img), axis=-1)  # Add blue tint
+    img = np.stack((img * 0.8, img * 0.8, img), axis=-1)
     return img
 
 images = []
@@ -73,6 +73,8 @@ model = Sequential([
     Conv2D(64, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+    Conv2D(256, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
     Dense(512, activation='relu'),
