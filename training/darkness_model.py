@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 import cv2
 import matplotlib.pyplot as plt
+import random
 
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
@@ -42,8 +43,17 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_dark_blue(img_path)
-        img = add_snowfall_noise(img)
+        img = cv2.imread(img_path)
+        img = cv2.resize(img, img_size)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.equalizeHist(img)
+        img = img / 255.0
+        img = np.stack((img, img, img), axis=-1)
+
+        if random.random() < 0.5:
+            img = preprocess_image_dark_blue(img_path)
+            img = add_snowfall_noise(img)
+
         images.append(img)
         labels.append(label_id)
 
@@ -97,7 +107,8 @@ model.summary()
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=65
+    epochs=65,
+    shuffle=True
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)

@@ -7,6 +7,8 @@ from PIL import Image, ImageEnhance, ImageFilter
 import random
 from sklearn.metrics import f1_score
 import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
 
 class TestTrafficSigns:
     def __init__(self, model_path, test_dir, labels_df, img_size=(64, 64)):
@@ -216,12 +218,6 @@ def evaluate_all_models(models_dir, test_dir, labels_df, img_size=(64, 64)):
     results_df = pd.DataFrame(results).T
     print("\nResults:")
     print(results_df)
-
-models_dir = 'models'
-test_dir = 'data/traffic_Data/TEST'
-labels_df = pd.read_csv('./data/traffic_Data/labels.csv')
-
-evaluate_all_models(models_dir, test_dir, labels_df, img_size=(64, 64))
 
 models_dir = 'models'
 test_dir = 'data/traffic_Data/TEST'

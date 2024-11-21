@@ -8,6 +8,7 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 import cv2
+from PIL import Image, ImageFilter
 
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
@@ -18,7 +19,7 @@ img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
 
-def preprocess_image_with_noise(img_path, noise_probability=0.5):
+def preprocess_image_with_noise_and_blur(img_path, noise_probability=0.5, blur_probability=0.5):
     img = cv2.imread(img_path)
     img = cv2.resize(img, img_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -31,6 +32,11 @@ def preprocess_image_with_noise(img_path, noise_probability=0.5):
         img = img + noise
         img = np.clip(img, 0.0, 1.0)
     
+    if np.random.rand() < blur_probability:
+        pil_img = Image.fromarray((img * 255).astype(np.uint8))
+        pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=1))
+        img = np.array(pil_img) / 255.0
+    
     return img
 
 images = []
@@ -40,7 +46,7 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_with_noise(img_path, noise_probability=0.5) 
+        img = preprocess_image_with_noise_and_blur(img_path, noise_probability=0.5, blur_probability=0.5) 
         images.append(img)
         labels.append(label_id)
 
@@ -98,7 +104,7 @@ test_image_names = []
 
 for img_name in os.listdir(test_dir):
     img_path = os.path.join(test_dir, img_name)
-    img = img_path
+    img = img_path,
     test_images.append(img)
     test_image_names.append(img_name)
     class_id = int(img_name.split('_')[0])
