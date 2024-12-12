@@ -1,32 +1,45 @@
 import os
 import pandas as pd
 import numpy as np
+import cv2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Dropout
 from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
-import cv2
-import matplotlib.pyplot as plt
+from tensorflow.keras.callbacks import EarlyStopping
+from PIL import Image, ImageEnhance
+import random
 
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'models/brightness.h5'
+model_save_path = 'models/brightness_tint_balanced.h5'
 
 img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
 
-def preprocess_image_bright(img_path):
+def preprocess_image_with_balanced_randomness(img_path, img_size=(64, 64), apply_probability=0.5):
     img = cv2.imread(img_path)
     img = cv2.resize(img, img_size)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.equalizeHist(img)
-    img = img * 1.5 
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = img / 255.0
-    img = np.stack((img, img, img * 0.9), axis=-1) 
+
+    if random.random() < apply_probability:
+        brightness_factor = random.uniform(1.0, 1.9) 
+        pil_img = Image.fromarray((img * 255).astype(np.uint8))
+        enhancer = ImageEnhance.Brightness(pil_img)
+        pil_img = enhancer.enhance(brightness_factor)
+
+        img = np.array(pil_img) / 255.0
+
+        yellow_tint_factor = random.uniform(0.05, 0.15) 
+        yellow_tint = np.array([1.0, 1.0, 0.85])
+        img = img * (1 - yellow_tint_factor) + yellow_tint * yellow_tint_factor
+        img = np.clip(img, 0.0, 1.0) 
+
     return img
 
 images = []
@@ -36,37 +49,25 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_bright(img_path)
+        img = preprocess_image_with_balanced_randomness(img_path, apply_probability=0.7)
         images.append(img)
         labels.append(label_id)
 
 images = np.array(images)
 labels = np.array(labels)
 
-num_images_to_display = 5
-plt.figure(figsize=(10, 10))
-for i in range(num_images_to_display):
-    plt.subplot(1, num_images_to_display, i + 1)
-    plt.imshow(images[i])
-    plt.title(f"Label: {labels_df['Name'][labels[i]]}")
-    plt.axis('off')
-plt.show()
-
-labels = to_categorical(labels)
+labels = to_categorical(labels, num_classes=len(labels_df))
 
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-print(f"Training Data Shape: {X_train.shape}, Validation Data Shape: {X_val.shape}")
-
 datagen = ImageDataGenerator(
-    width_shift_range=0.2,
+    width_shift_range=0.2, 
     height_shift_range=0.2,
     zoom_range=0.2,
     shear_range=0.2,
-    rotation_range=20.
+    rotation_range=20. 
 )
 datagen.fit(X_train)
-
 model = Sequential([
     Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
     MaxPooling2D(pool_size=(2, 2)),
@@ -77,23 +78,24 @@ model = Sequential([
     Conv2D(256, (3, 3), activation='relu'),
     MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
-    Dense(512, activation='relu'), 
-    Dropout(0.5),            
+
+    Dense(512, activation='relu'),
+    Dropout(0.4),
     Dense(256, activation='relu'),
-    Dropout(0.5),                  
+    Dropout(0.4),
     Dense(len(labels_df), activation='softmax')
 ])
 
-model.compile(optimizer=Adam(learning_rate=0.001), 
-              loss='categorical_crossentropy', 
-              metrics=['accuracy'])
-
+model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 model.summary()
+
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=65
+    epochs=80,
+    callbacks=[early_stopping]
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
@@ -108,10 +110,10 @@ test_image_names = []
 
 for img_name in os.listdir(test_dir):
     img_path = os.path.join(test_dir, img_name)
-    img = img_path
+    img = preprocess_image_with_balanced_randomness(img_path, apply_probability=0.0)
     test_images.append(img)
     test_image_names.append(img_name)
-    class_id = int(img_name.split('_')[0]) 
+    class_id = int(img_name.split('_')[0])
     test_labels.append(class_id)
 
 test_images = np.array(test_images)
@@ -122,12 +124,3 @@ predicted_labels = np.argmax(predictions, axis=1)
 
 accuracy = np.mean(predicted_labels == test_labels)
 print(f"Test Accuracy: {accuracy*100:.2f}%")
-
-num_images_to_display = 5
-plt.figure(figsize=(10, 10))
-for i in range(num_images_to_display):
-    plt.subplot(1, num_images_to_display, i + 1)
-    plt.imshow(test_images[i])
-    plt.title(f"Pred: {labels_df['Name'][predicted_labels[i]]}")
-    plt.axis('off')
-plt.show()

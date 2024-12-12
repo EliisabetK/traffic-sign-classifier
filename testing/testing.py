@@ -1,12 +1,10 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import os
 import numpy as np
 import pandas as pd
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.models import load_model
 from PIL import Image, ImageEnhance, ImageFilter
-import random
 from sklearn.metrics import f1_score
 import matplotlib.pyplot as plt
 
@@ -18,35 +16,34 @@ def load_and_preprocess_image(img_path, img_size=(64, 64)):
 def apply_brightness(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     enhancer = ImageEnhance.Brightness(pil_img)
-    pil_img = enhancer.enhance(random.uniform(1.5, 1.8))
+    pil_img = enhancer.enhance(1.8)
     img = np.array(pil_img) / 255.0
     return img
 
 def apply_darken(img):
     img = np.array(img)
-    img = np.multiply(img, random.uniform(0.2, 0.6))
+    img = np.multiply(img, 0.4)
     img = np.clip(img, 0, 255)
     return img
 
 def add_noise(img):
-    noise_factor = 0.15
-    noise = np.random.normal(loc=0.0, scale=noise_factor, size=img.shape)
+    noise = np.full_like(img, 0.15)
     img = img + noise
     img = np.clip(img, 0, 1)
     return img
 
-def apply_rotation(img, angle=15):
+def apply_rotation(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
-    pil_img = pil_img.rotate(angle)
+    pil_img = pil_img.rotate(15)
     img = np.array(pil_img) / 255.0
     return img
 
-def apply_zoom(img, zoom_factor=1.5):
+def apply_zoom(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     width, height = pil_img.size
     x = width / 2
     y = height / 2
-    pil_img = pil_img.crop((x - width / (2 * zoom_factor), y - height / (2 * zoom_factor), x + width / (2 * zoom_factor), y + height / (2 * zoom_factor)))
+    pil_img = pil_img.crop((x - width / 3, y - height / 3, x + width / 3, y + height / 3))
     pil_img = pil_img.resize((width, height), Image.LANCZOS)
     img = np.array(pil_img) / 255.0
     return img
@@ -54,7 +51,7 @@ def apply_zoom(img, zoom_factor=1.5):
 def apply_contrast(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     enhancer = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer.enhance(random.uniform(0.5, 1.5))
+    pil_img = enhancer.enhance(1.0)
     img = np.array(pil_img) / 255.0
     return img
 
@@ -62,6 +59,14 @@ def apply_blur(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=1))
     img = np.array(pil_img) / 255.0
+    return img
+
+def apply_occlusion(img):
+    np_img = np.array(img)
+    h, w, _ = np_img.shape
+    np_img[10:12, 10:12] = 0
+    img = np.clip(np_img, 0, 255).astype(np.uint8)
+    img = np.array(img) / 255.0
     return img
 
 def predict(model, test_images):
@@ -79,7 +84,6 @@ def display_images(images, titles, num_images=10):
         plt.title(titles[i], fontsize=10)
         plt.axis('off')
     plt.tight_layout(pad=2.0)
-    plt.show()
 
 def calculate_f1_score(true_labels, predicted_labels, variation_name):
     f1 = f1_score(true_labels, predicted_labels, average='weighted')
@@ -157,53 +161,17 @@ def evaluate_all_models(models_dir, test_dir, labels_df, img_size=(64, 64)):
             blurred_f1 = calculate_f1_score(true_labels, blurred_preds, "Blurred")
             results[model_file]["Blurred_F1"] = blurred_f1
 
-            results[model_file]["Average_F1"] = np.mean(list(results[model_file].values()))
+            print("\nEvaluating with occluded images:")
+            occluded_images = [apply_occlusion(img) for img in test_images]
+            occluded_preds = predict(model, np.array(occluded_images))
+            occluded_f1 = calculate_f1_score(true_labels, occluded_preds, "Occluded")
+            results[model_file]["Occluded_F1"] = occluded_f1
 
-            sample_idx = random.randint(0, len(test_images) - 1)
-            sample_image = test_images[sample_idx]
-            sample_true_label = true_labels[sample_idx]
-            sample_image_name = test_image_names[sample_idx]
-            
-            transformed_images = {
-                "Original": sample_image,
-                "Brightened": apply_brightness(sample_image),
-                "Darkened": apply_darken(sample_image),
-                "Noisy": add_noise(sample_image),
-                "Rotated": apply_rotation(sample_image),
-                "Zoomed": apply_zoom(sample_image),
-                "Contrast": apply_contrast(sample_image),
-                "Blurred": apply_blur(sample_image),
-            }
-            
-            transformed_preds = {name: predict(model, np.array([img]))[0] for name, img in transformed_images.items()}
-            visualize(
-                transformed_images, transformed_preds, sample_true_label, sample_image_name, labels_df, model_file
-            )
+            results[model_file]["Average_F1"] = np.mean(list(results[model_file].values()))
 
     results_df = pd.DataFrame(results).T
     print("\nResults:")
     print(results_df)
-
-def visualize(transformed_images, transformed_preds, true_label, image_name, labels_df, model_name):
-    """Display one image across all transformations with predictions."""
-    plt.figure(figsize=(20, 10))
-    num_transformations = len(transformed_images)
-    grid_size = int(np.ceil(np.sqrt(num_transformations)))
-    
-    true_label_name = labels_df.loc[labels_df['ClassId'] == true_label, 'Name'].values[0]
-    
-    for i, (transformation, img) in enumerate(transformed_images.items()):
-        pred_label = transformed_preds[transformation]
-        pred_label_name = labels_df.loc[labels_df['ClassId'] == pred_label, 'Name'].values[0]
-        
-        plt.subplot(grid_size, grid_size, i + 1)
-        plt.imshow(img)
-        plt.title(f"{transformation}\nTrue: {true_label_name}\nPred: {pred_label_name}", fontsize=10)
-        plt.axis('off')
-    
-    plt.suptitle(f"Model: {model_name} - Transformations for {image_name}", fontsize=16)
-    plt.tight_layout(pad=3.0)
-    plt.show()
 
 models_dir = 'models'
 test_dir = 'data/traffic_Data/TEST'
