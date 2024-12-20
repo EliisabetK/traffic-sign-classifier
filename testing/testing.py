@@ -1,4 +1,5 @@
 import os
+import random
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
 import pandas as pd
@@ -51,7 +52,15 @@ def apply_zoom(img):
 def apply_contrast(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     enhancer = ImageEnhance.Contrast(pil_img)
-    pil_img = enhancer.enhance(1.0)
+    contrast_factor = random.uniform(0, 2.0)
+    pil_img = enhancer.enhance(contrast_factor)
+    img = np.array(pil_img) / 255.0
+    return img
+
+def apply_saturation(img, factor=1.5):
+    pil_img = Image.fromarray((img * 255).astype(np.uint8))
+    enhancer = ImageEnhance.Color(pil_img)
+    pil_img = enhancer.enhance(factor)
     img = np.array(pil_img) / 255.0
     return img
 
@@ -59,14 +68,6 @@ def apply_blur(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     pil_img = pil_img.filter(ImageFilter.GaussianBlur(radius=1))
     img = np.array(pil_img) / 255.0
-    return img
-
-def apply_occlusion(img):
-    np_img = np.array(img)
-    h, w, _ = np_img.shape
-    np_img[10:12, 10:12] = 0
-    img = np.clip(np_img, 0, 255).astype(np.uint8)
-    img = np.array(img) / 255.0
     return img
 
 def predict(model, test_images):
@@ -161,11 +162,11 @@ def evaluate_all_models(models_dir, test_dir, labels_df, img_size=(64, 64)):
             blurred_f1 = calculate_f1_score(true_labels, blurred_preds, "Blurred")
             results[model_file]["Blurred_F1"] = blurred_f1
 
-            print("\nEvaluating with occluded images:")
-            occluded_images = [apply_occlusion(img) for img in test_images]
-            occluded_preds = predict(model, np.array(occluded_images))
-            occluded_f1 = calculate_f1_score(true_labels, occluded_preds, "Occluded")
-            results[model_file]["Occluded_F1"] = occluded_f1
+            print("\nEvaluating with increased saturation:")
+            saturated_images = [apply_saturation(img) for img in test_images]
+            saturated_preds = predict(model, np.array(saturated_images))
+            saturated_f1 = calculate_f1_score(true_labels, saturated_preds, "Saturated")
+            results[model_file]["Saturated_F1"] = saturated_f1
 
             results[model_file]["Average_F1"] = np.mean(list(results[model_file].values()))
 

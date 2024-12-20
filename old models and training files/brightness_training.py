@@ -1,6 +1,4 @@
 import os
-import random
-from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -22,7 +20,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="keras")
 data_dir = 'data/traffic_Data/DATA'
 labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'models/best_model_with_brightening.h5'
+model_save_path = 'models/best_model_with_brightness_saturation.h5'
 img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
@@ -30,22 +28,19 @@ labels_df = pd.read_csv(labels_csv)
 def preprocess_image(img_path):
     img = cv2.imread(img_path)
     img = cv2.resize(img, img_size)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.equalizeHist(img)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = img / 255.0
-    img = np.stack((img,) * 3, axis=-1)
     return img
 
-def brighten_image(image, factor=1.7):
-    return np.clip(image * factor, 0, 1)
+def increase_brightness(image, factor=1.5):
+    hsv = cv2.cvtColor((image * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    hsv[..., 2] = np.clip(hsv[..., 2] * factor, 0, 255)
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB) / 255.0
 
-def adjust_contrast(image, factor=1.5):
-    mean = np.mean(image, axis=(0, 1), keepdims=True)
-    return np.clip((image - mean) * factor + mean, 0, 1)
-
-def add_yellow_tint(image, intensity=0.2):
-    yellow_tint = np.array([1.0, 1.0, 0.0]) * intensity
-    return np.clip(image + yellow_tint, 0, 1)
+def increase_saturation(image, factor=1.5):
+    hsv = cv2.cvtColor((image * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    hsv[..., 1] = np.clip(hsv[..., 1] * factor, 0, 255)
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB) / 255.0
 
 images = []
 labels = []
@@ -64,51 +59,14 @@ labels = to_categorical(labels)
 
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-def visualize_transformations(images, num_images=5, brighten_factor=1.7, contrast_factor=1.4, yellow_intensity=0.2):
-    plt.figure(figsize=(15, 5))
-    for i in range(num_images):
-        original_img = images[i]
-        brightened_img = brighten_image(original_img, brighten_factor)
-        contrast_img = adjust_contrast(brightened_img, contrast_factor)
-        yellow_tinted_img = add_yellow_tint(contrast_img, yellow_intensity)
-
-        # Display original image
-        plt.subplot(3, num_images, i + 1)
-        plt.imshow(original_img)
-        plt.title("Original")
-        plt.axis('off')
-
-        # Display brightened image
-        plt.subplot(3, num_images, num_images + i + 1)
-        plt.imshow(brightened_img)
-        plt.title("Brightened")
-        plt.axis('off')
-
-        # Display yellow tinted image
-        plt.subplot(3, num_images, 2 * num_images + i + 1)
-        plt.imshow(yellow_tinted_img)
-        plt.title("Yellow Tinted")
-        plt.axis('off')
-
-    plt.tight_layout()
-    plt.show()
-
-# Select a few images to visualize
-sample_images = images[:5]  # Assuming 'images' is your dataset
-visualize_transformations(sample_images)
-
-def augment_with_random_transformations(generator, X, y, batch_size=32, brighten_factor=1.5, contrast_factor=1.2, yellow_intensity=0.2, augmentation_probability=0.6):
+def augment_with_brightness_and_saturation(generator, X, y, batch_size=32, brightness_factor=1.8, saturation_factor=1.7):
     while True:
         for X_batch, y_batch in generator.flow(X, y, batch_size=batch_size):
-            augmented_X_batch = []
-            for img in X_batch:
-                if random.random() < augmentation_probability:
-                    img = brighten_image(img, brighten_factor)
-                    img = adjust_contrast(img, contrast_factor)
-                    img = add_yellow_tint(img, yellow_intensity)
-                augmented_X_batch.append(img)
-            augmented_X_batch = np.array(augmented_X_batch)
-            yield augmented_X_batch, y_batch
+            brightened_X_batch = np.array([increase_brightness(img, brightness_factor) for img in X_batch])
+            saturated_X_batch = np.array([increase_saturation(img, saturation_factor) for img in X_batch])
+            augmented_X_batch = np.concatenate([X_batch, brightened_X_batch, saturated_X_batch])
+            augmented_y_batch = np.concatenate([y_batch, y_batch, y_batch, y_batch])
+            yield augmented_X_batch, augmented_y_batch
 
 train_datagen = ImageDataGenerator(
     width_shift_range=0.2,
@@ -117,16 +75,17 @@ train_datagen = ImageDataGenerator(
     shear_range=0.2,
     rotation_range=20.
 )
-
-train_generator = augment_with_random_transformations(train_datagen, X_train, y_train)
+train_generator = augment_with_brightness_and_saturation(train_datagen, X_train, y_train)
 
 val_datagen = ImageDataGenerator()
-val_generator = augment_with_random_transformations(val_datagen, X_val, y_val)
+val_generator = augment_with_brightness_and_saturation(val_datagen, X_val, y_val)
 
 param_grid = {
-    'dense_units': [512, 1024],
-    'dropout_rate': [0.4, 0.5],
-    'learning_rate': [0.001, 0.0001],
+    'dense_units': [1024],
+    'dropout_rate': [0.4],
+    'learning_rate': [0.001],
+    'brightness_factor': [1.5],
+    'saturation_factor': [1.5]
 }
 param_combinations = list(itertools.product(*param_grid.values()))
 
@@ -144,14 +103,14 @@ for img_name in os.listdir(test_dir):
     img = preprocess_image(img_path)
     test_images.append(img)
     test_image_names.append(img_name)
-    class_id = int(img_name.split('_')[0])
+    class_id = int(img_name.split('_')[0]) 
     test_labels.append(class_id)
 
 test_images = np.array(test_images)
 test_labels = np.array(test_labels)
 
 for params in param_combinations:
-    dense_units, dropout_rate, learning_rate = params
+    dense_units, dropout_rate, learning_rate, brightness_factor, saturation_factor = params
 
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
@@ -178,7 +137,7 @@ for params in param_combinations:
         steps_per_epoch=len(X_train) // 32,
         validation_data=val_generator,
         validation_steps=len(X_val) // 32,
-        epochs=65,
+        epochs=75,
         callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)],
         verbose=0
     )
@@ -198,6 +157,10 @@ for params in param_combinations:
     if test_accuracy > best_test_accuracy or (test_accuracy == best_test_accuracy and test_f1 > best_test_f1_score):
         best_test_accuracy = test_accuracy
         best_test_f1_score = test_f1
-        best_test_model = model  # Assigning the model correctly
+        best_test_model = model
         best_test_params = params
-        model.save(model_save_path)  # Ensures the best model is saved
+
+if best_test_model:
+    best_test_model.save(model_save_path)
+    print(f"Best Model saved to {model_save_path} with test accuracy {best_test_accuracy*100:.2f}% and test F1 score {best_test_f1_score:.2f}")
+    print(f"Best Parameters based on Test Data: {best_test_params}")
