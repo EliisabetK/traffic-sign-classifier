@@ -57,10 +57,10 @@ labels = to_categorical(labels)
 
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-def augment_with_random_darkening_and_noise(generator, X, y, batch_size=32, noise_factor=0.15):
+def augment_with_random_darkening_and_noise(generator, X, y, batch_size=32, noise_factor=0.1):
     while True:
         for X_batch, y_batch in generator.flow(X, y, batch_size=batch_size):
-            darkened_X_batch = np.array([darken_image(img, random.uniform(0.3, 0.7)) for img in X_batch])
+            darkened_X_batch = np.array([darken_image(img, random.uniform(0.2, 0.5)) for img in X_batch])
             noisy_X_batch = np.array([add_noise(img, noise_factor) for img in X_batch])
             augmented_X_batch = np.concatenate([X_batch, darkened_X_batch, noisy_X_batch])
             augmented_y_batch = np.concatenate([y_batch, y_batch, y_batch])
@@ -130,7 +130,7 @@ for params in param_combinations:
         steps_per_epoch=len(X_train) // 32,
         validation_data=val_generator,
         validation_steps=len(X_val) // 32,
-        epochs=75,
+        epochs=65,
         callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)],
         verbose=0
     )

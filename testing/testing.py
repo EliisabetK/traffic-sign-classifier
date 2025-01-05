@@ -174,7 +174,7 @@ def evaluate_all_models(models_dir, test_dir, labels_df, img_size=(64, 64)):
     print("\nResults:")
     print(results_df)
 
-models_dir = 'models'
+models_dir = 'models2'
 test_dir = 'data/traffic_Data/TEST'
 labels_df = pd.read_csv('./data/traffic_Data/labels.csv')
 

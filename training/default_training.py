@@ -51,7 +51,7 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_with_noise_and_blur(img_path, noise_probability=0.05, blur_probability=0.05, darken_probability=0.05, darken_factor=0.8) 
+        img = preprocess_image_with_noise_and_blur(img_path, noise_probability=0.07, blur_probability=0.05, darken_probability=0.05, darken_factor=0.8) 
         images.append(img)
         labels.append(label_id)
 
@@ -94,7 +94,7 @@ model.summary()
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=75
+    epochs=85
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)

@@ -28,7 +28,7 @@ def preprocess_image_with_noise_and_blur(img_path, noise_probability=0.8, blur_p
     img = np.stack((img,)*3, axis=-1)
     
     if np.random.rand() < noise_probability:
-        noise_factor = np.random.uniform(0.1, 0.2)
+        noise_factor = np.random.uniform(0.05, 0.2)
         noise = np.random.normal(loc=0.0, scale=noise_factor, size=img.shape)
         img = img + noise
         img = np.clip(img, 0.0, 1.0)
