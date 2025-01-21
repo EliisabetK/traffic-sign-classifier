@@ -17,18 +17,18 @@ def load_and_preprocess_image(img_path, img_size=(64, 64)):
 def apply_brightness(img):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     enhancer = ImageEnhance.Brightness(pil_img)
-    pil_img = enhancer.enhance(1.8)
+    pil_img = enhancer.enhance(1.5)
     img = np.array(pil_img) / 255.0
     return img
 
 def apply_darken(img):
     img = np.array(img)
-    img = np.multiply(img, 0.4)
+    img = np.multiply(img, 0.5)
     img = np.clip(img, 0, 255)
     return img
 
 def add_noise(img):
-    noise = np.full_like(img, 0.15)
+    noise = np.full_like(img, 0.2)
     img = img + noise
     img = np.clip(img, 0, 1)
     return img
@@ -57,7 +57,7 @@ def apply_contrast(img):
     img = np.array(pil_img) / 255.0
     return img
 
-def apply_saturation(img, factor=1.5):
+def apply_saturation(img, factor=2.0):
     pil_img = Image.fromarray((img * 255).astype(np.uint8))
     enhancer = ImageEnhance.Color(pil_img)
     pil_img = enhancer.enhance(factor)

@@ -134,7 +134,7 @@ def test_with_variations(model_path, test_dir, labels_df, img_size=(64, 64)):
         drop = original_f1 - f1_score
         print(f"{variation:<20} {f1_score:<10.4f} {drop:<20.4f}")
 
-model_path = "models/modelA'.h5" # Change this to the model you want to test
+model_path = "models/modelA.h5" # Change this to the model you want to test
 
 test_with_variations(
     model_path=model_path,

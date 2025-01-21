@@ -19,7 +19,7 @@ img_size = (64, 64)
 
 labels_df = pd.read_csv(labels_csv)
 
-def preprocess_image_with_noise_and_blur(img_path, noise_probability=0.05, blur_probability=0.05, darken_probability=0.03, darken_factor=0.8):
+def preprocess_image_with_noise_and_blur(img_path, noise_probability=0.05, blur_probability=0.05, darken_probability=0.00, darken_factor=0.8):
     img = cv2.imread(img_path)
     img = cv2.resize(img, img_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -51,7 +51,7 @@ for label_id, label_name in zip(labels_df['ClassId'], labels_df['Name']):
     label_folder = os.path.join(data_dir, str(label_id))
     for img_name in os.listdir(label_folder):
         img_path = os.path.join(label_folder, img_name)
-        img = preprocess_image_with_noise_and_blur(img_path, noise_probability=0.07, blur_probability=0.05, darken_probability=0.05, darken_factor=0.8) 
+        img = preprocess_image_with_noise_and_blur(img_path, noise_probability=0.07, blur_probability=0.05, darken_probability=0.00, darken_factor=0.8) 
         images.append(img)
         labels.append(label_id)
 
@@ -67,7 +67,7 @@ datagen = ImageDataGenerator(
     height_shift_range=0.2,
     zoom_range=0.2,
     shear_range=0.2,
-    rotation_range=20.
+    rotation_range=10.
 )
 datagen.fit(X_train)
 
@@ -94,7 +94,7 @@ model.summary()
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=85
+    epochs=65
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
