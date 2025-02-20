@@ -12,7 +12,7 @@ from scipy.ndimage import rotate
 
 # Helper methods to load images, calculate F1 score, and print predictions
 # No need to change these
-def load_and_preprocess_image(img_path, img_size):
+def preprocess(img_path, img_size):
     img = load_img(img_path, target_size=img_size)
     img = img_to_array(img) / 255.0
     return img
@@ -22,7 +22,7 @@ def predict(model, test_images):
     predicted_labels = np.argmax(predictions, axis=1)
     return predicted_labels
 
-def display_images(images, title, num_images=5):
+def display(images, title, num_images=5):
     plt.figure(figsize=(15, 5))
     for i in range(num_images):
         plt.subplot(1, num_images, i + 1)
@@ -31,7 +31,7 @@ def display_images(images, title, num_images=5):
         plt.axis('off')
     plt.show()
 
-def calculate_f1_score(true_labels, predicted_labels, variation_name):
+def calculate_f1(true_labels, predicted_labels, variation_name):
     f1 = f1_score(true_labels, predicted_labels, average='weighted')
     print(f"F1 Score for {variation_name} images: {f1:.4f}")
     return f1
@@ -51,7 +51,7 @@ def rotate_image(img, angle=20):
 Add more methods as needed for testing the model with different variations of images
 """
 
-def test_with_variations(model_path, test_dir, labels_df, img_size=(64, 64)):
+def test(model_path, test_dir, labels_df, img_size=(64, 64)):
     model = load_model(model_path)
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
@@ -60,7 +60,7 @@ def test_with_variations(model_path, test_dir, labels_df, img_size=(64, 64)):
     true_labels = []
     for img_name in os.listdir(test_dir):
         img_path = os.path.join(test_dir, img_name)
-        img = load_and_preprocess_image(img_path, img_size)
+        img = preprocess(img_path, img_size)
         test_images.append(img)
         test_image_names.append(img_name)
         class_id = int(img_name.split('_')[0])
@@ -73,16 +73,16 @@ def test_with_variations(model_path, test_dir, labels_df, img_size=(64, 64)):
 
     print("Evaluating on original images:")
     original_preds = predict(model, test_images)
-    original_f1 = calculate_f1_score(true_labels, original_preds, "Original")
+    original_f1 = calculate_f1(true_labels, original_preds, "Original")
     f1_scores["Original"] = original_f1
-    display_images(test_images, "Original")
+    display(test_images, "Original")
 
     print("\nEvaluating with rotated images:")
     rotated_images = [rotate_image(img) for img in test_images] # Rotate all the images in the test set
     rotated_preds = predict(model, np.array(rotated_images)) # Predict on the rotated images
-    rotated_f1 = calculate_f1_score(true_labels, rotated_preds, "Rotated") # Calculate the F1 score on the rotated images
+    rotated_f1 = calculate_f1(true_labels, rotated_preds, "Rotated") # Calculate the F1 score on the rotated images
     f1_scores["Rotated"] = rotated_f1 # Store the F1 score for the rotated images in the dictionary
-    display_images(rotated_images, "Rotated") # Display the rotated images
+    display(rotated_images, "Rotated") # Display the rotated images
 
     """
     Add more code for the additional variations of images as needed
@@ -97,9 +97,9 @@ def test_with_variations(model_path, test_dir, labels_df, img_size=(64, 64)):
         drop = original_f1 - f1_score
         print(f"{variation:<10} {f1_score:<10.4f} {drop:<20.4f}")
 
-model_path = 'models/default.h5'
+model_path = 'models/modelA.h5'
 
-test_with_variations(
+test(
     model_path=model_path,
     test_dir='data/traffic_Data/TEST',
     labels_df=pd.read_csv('data/traffic_Data/labels.csv'),
