@@ -1,75 +1,65 @@
-# Trains Model A
-
 import os
 import numpy as np
 import pandas as pd
 import cv2
-import random
-import itertools
-from PIL import Image, ImageEnhance
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Flatten
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score
+from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+from training.MT_testing import metamorphic_test
+from PIL import Image, ImageFilter
 
 data_dir = 'data/traffic_Data/DATA'
-labels_csv = 'data/traffic_Data/labels.csv'
 test_dir = 'data/traffic_Data/TEST'
-model_save_path = 'models/brightness.h5'
+labels_csv = 'data/traffic_Data/labels.csv'
+output_dir = 'models'
 img_size = (64, 64)
 labels_df = pd.read_csv(labels_csv)
 
-def process_img(img_path):
+def process_img(img_path, noise_p=0.05, blur_p=0.05, bright_p=0.8, bright_f=2, sat_p=0.8, sat_f_range=(0.7, 2)):
     img = cv2.imread(img_path)
     img = cv2.resize(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), img_size)
     img = np.stack((cv2.equalizeHist(img) / 255.0,) * 3, axis=-1)
+
+    if np.random.rand() < noise_p:
+        img = np.clip(img + np.random.normal(0, np.random.uniform(0.05, 0.20), img.shape), 0, 1)
+
+    if np.random.rand() < blur_p:
+        img = np.array(Image.fromarray((img * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1))) / 255.0
+
+    if np.random.rand() < bright_p:
+        random_bright_factor = np.random.uniform(0.8, bright_f)
+        img = np.clip(img * random_bright_factor, 0, 1)
+
+    if np.random.rand() < sat_p:
+        sat_f = np.random.uniform(*sat_f_range)
+        hsv = cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_RGB2HSV).astype(np.float32)
+        hsv[..., 1] = np.clip(hsv[..., 1] * sat_f, 0, 255)
+        img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB) / 255.0
     return img
 
-def adjust_brightness(img, factor):
-    img = Image.fromarray((img * 255).astype(np.uint8))
-    img = ImageEnhance.Brightness(img).enhance(factor)
-    return np.array(img) / 255.0
+def load_data(directory):
+    images, labels = [], []
+    for label_id in labels_df['ClassId']:
+        folder = os.path.join(directory, str(label_id))
+        for img_name in os.listdir(folder):
+            img_path = os.path.join(folder, img_name)
+            images.append(process_img(img_path))
+            labels.append(label_id)
+    return np.array(images), to_categorical(np.array(labels))
 
-def adjust_saturation(img, factor):
-    img = Image.fromarray((img * 255).astype(np.uint8))
-    img = ImageEnhance.Color(img).enhance(factor)
-    return np.array(img) / 255.0
+def load_test_data(directory):
+    images, labels = [], []
+    for img_name in os.listdir(directory):
+        img_path = os.path.join(directory, img_name)
+        images.append(process_img(img_path))
+        labels.append(int(img_name.split('_')[0]))
+    return np.array(images), np.array(labels)
 
-def add_noise(img, noise_factor=0.05):
-    return np.clip(img + np.random.normal(0, noise_factor, img.shape), 0, 1)
-
-def augment_data(generator, X, y, batch_size=32):
-    while True:
-        for X_batch, y_batch in generator.flow(X, y, batch_size=batch_size):
-            dark_X = np.array([adjust_brightness(img, random.uniform(1, 2.0)) for img in X_batch])
-            sat_X = np.array([adjust_saturation(img, random.uniform(1, 2.0)) for img in X_batch])
-            noisy_X = np.array([add_noise(img, 0.15) for img in X_batch])
-            X_aug = np.concatenate([X_batch, dark_X, sat_X, noisy_X])
-            y_aug = np.concatenate([y_batch, y_batch, y_batch, y_batch])
-            yield X_aug, y_aug
-
-X, y = zip(*[(process_img(os.path.join(data_dir, str(lbl_id), img)), lbl_id) 
-              for lbl_id in labels_df['ClassId'] for img in os.listdir(os.path.join(data_dir, str(lbl_id)))])
-X, y = np.array(X), to_categorical(y)
-X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-
-datagen = ImageDataGenerator(width_shift_range=0.2, height_shift_range=0.2, zoom_range=0.2, shear_range=0.2, rotation_range=20)
-train_gen = augment_data(datagen, X_train, y_train)
-val_gen = augment_data(ImageDataGenerator(), X_val, y_val)
-
-params = list(itertools.product([512], [0.5], [0.001]))
-best_model, best_acc, best_f1, best_params = None, 0, 0, None
-
-X_test, y_test = zip(*[(process_img(os.path.join(test_dir, img)), int(img.split('_')[0])) for img in os.listdir(test_dir)])
-X_test, y_test = np.array(X_test), np.array(y_test)
-
-for dense_units, dropout_rate, lr in params:
+def build_model():
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
         MaxPooling2D((2, 2)),
@@ -80,22 +70,37 @@ for dense_units, dropout_rate, lr in params:
         Conv2D(256, (3, 3), activation='relu'),
         MaxPooling2D((2, 2)),
         Flatten(),
-        Dense(dense_units, activation='relu'),
-        Dropout(dropout_rate),
-        Dense(dense_units // 2, activation='relu'),
-        Dropout(dropout_rate),
+        Dense(512, activation='relu'),
+        Dropout(0.5),
+        Dense(256, activation='relu'),
+        Dropout(0.5),
         Dense(len(labels_df), activation='softmax'),
     ])
-    model.compile(optimizer=Adam(lr), loss='categorical_crossentropy', metrics=['accuracy'])
-    model.fit(train_gen, steps_per_epoch=len(X_train) // 32, validation_data=val_gen, validation_steps=len(X_val) // 32, epochs=90, callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)], verbose=0)
-    y_pred = np.argmax(model.predict(X_val), axis=1)
-    val_f1 = f1_score(np.argmax(y_val, axis=1), y_pred, average='weighted')
-    test_preds = np.argmax(model.predict(X_test), axis=1)
-    test_acc, test_f1 = np.mean(test_preds == y_test), f1_score(y_test, test_preds, average='weighted')
-    if test_acc > best_acc or (test_acc == best_acc and test_f1 > best_f1):
-        best_acc, best_f1, best_model, best_params = test_acc, test_f1, model, (dense_units, dropout_rate, lr)
+    model.compile(optimizer=Adam(0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
 
-if best_model:
-    best_model.save(model_save_path)
-    print(f"Best Model saved to {model_save_path} with test accuracy {best_acc*100:.2f}% and test F1 score {best_f1:.2f}")
-    print(f"Best Parameters: {best_params}")
+X, y = load_data(data_dir)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+test_images, test_labels = load_test_data(test_dir)
+datagen = ImageDataGenerator(width_shift_range=0.2, height_shift_range=0.2, zoom_range=0.2, shear_range=0.2, rotation_range=20)
+
+for i in range(25):
+    model = build_model()
+    model.fit(datagen.flow(X_train, y_train, batch_size=32), validation_data=(X_val, y_val), epochs=100, verbose=0, callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)])
+    temp_path = f"{output_dir}/temp_model_{i}.h5"
+    model.save(temp_path)
+    results = metamorphic_test(temp_path, test_images, [str(j) for j in range(len(test_images))])
+
+    brightness_consistency = results[4]
+    saturation_consistency = results[5]
+    darkness_consistency = results[6]
+    noise_consistency = results[3]
+    blur_consistency = results[2]
+
+    if 92 <= brightness_consistency <= 100 and 92 <= saturation_consistency <= 100 and all(val < 85 for val in [darkness_consistency, noise_consistency, blur_consistency]):
+        os.rename(temp_path, f"{output_dir}/bright.h5")
+        print("Saved bright.h5")
+        break
+else:
+    print("No model met the criteria")

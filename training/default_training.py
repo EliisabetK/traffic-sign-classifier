@@ -26,7 +26,6 @@ def preprocess_image(img_path):
     img = cv2.equalizeHist(img)
     img = img / 255.0
     return np.stack((img,) * 3, axis=-1)
-
 images, labels = [], []
 
 for label_id, _ in zip(labels_df['ClassId'], labels_df['Name']):
@@ -74,7 +73,7 @@ model.summary()
 history = model.fit(
     datagen.flow(X_train, y_train, batch_size=32),
     validation_data=(X_val, y_val),
-    epochs=70
+    epochs=60
 )
 
 val_loss, val_accuracy = model.evaluate(X_val, y_val)
@@ -95,9 +94,7 @@ for img_name in os.listdir(test_dir):
 
 test_images = np.array(test_images)
 test_labels = np.array(test_labels)
-
 predictions = model.predict(test_images)
 predicted_labels = np.argmax(predictions, axis=1)
-
 accuracy = np.mean(predicted_labels == test_labels)
 print(f"Test Accuracy: {accuracy * 100:.2f}%")
