@@ -1,8 +1,9 @@
 import os
 import numpy as np
 import pandas as pd
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.models import load_model
+from tensorflow import keras
+from keras._tf_keras.keras.preprocessing.image import load_img, img_to_array
+from keras._tf_keras.keras.models import load_model
 from scipy.ndimage import rotate
 import matplotlib.pyplot as plt
 
@@ -84,7 +85,7 @@ def test(model_path, test_dir, label_csv, img_size=(64, 64)):
     print(consistency_df)
     return consistency_df
 
-model_path = 'models/modelA.h5' # Change this to the model you want to test
+model_path = 'models/modelC.h5' # Change this to the model you want to test
 results = test(
     model_path=model_path,
     test_dir='data/traffic_Data/TEST',

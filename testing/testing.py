@@ -35,10 +35,9 @@ def evaluate(models_dir, test_dir, img_size=(64, 64)):
                 true_labels.append(class_id)
             test_images = np.array(test_images)
             true_labels = np.array(true_labels)
-            print("\nEvaluating on Original images:")
             preds = predict(model, test_images)
             f1 = calculate_f1(true_labels, preds)
-            results[model_file] = {"Original_F1": f1}
+            results[model_file] = {"F1 score": f1}
 
     results_df = pd.DataFrame(results).T
     print("\nResults:")
