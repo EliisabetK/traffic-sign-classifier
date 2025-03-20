@@ -9,7 +9,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
-from training.MT_testing import metamorphic_test
+from testing.MT_testing import metamorphic_test
 from PIL import Image, ImageFilter
 
 data_dir = 'data/traffic_Data/DATA'
