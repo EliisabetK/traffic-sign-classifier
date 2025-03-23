@@ -5,21 +5,25 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 class_dict = pd.read_csv("data/class_dict.csv", index_col="class_index")
+data_dir = "data/traffic_Data/DATA"
+label_csv_path = "data/traffic_Data/labels.csv"
+label_df = pd.read_csv(label_csv_path)
+label_map = dict(zip(label_df["ClassId"].astype(str), label_df["Name"]))
 
 def load_and_process_data(file_path):
     df = pd.read_csv(file_path)
     model_name = os.path.basename(file_path).split('_')[-1].split('.')[0]
     modification_columns = df.columns[3:]
     for col in modification_columns:
-        df[f"{col} Correct"] = df[col] == df["True Label"]
+        df[f"{col} Correct"] = df[col] == df["True label"]
 
     results_per_modification = {}
     for col in modification_columns:
         results_per_modification[col] = {
-            "originally_correct_still_correct": len(df[(df["True Label"] == df["Original Prediction"]) & (df[col] == df["True Label"])]),
-            "originally_wrong_still_wrong": len(df[(df["True Label"] != df["Original Prediction"]) & (df[col] != df["True Label"])]),
-            "originally_correct_became_wrong": len(df[(df["True Label"] == df["Original Prediction"]) & (df[col] != df["True Label"])]),
-            "originally_wrong_became_correct": len(df[(df["True Label"] != df["Original Prediction"]) & (df[col] == df["True Label"])]),
+            "originally_correct_still_correct": len(df[(df["True label"] == df["Original pred"]) & (df[col] == df["True label"])]),
+            "originally_wrong_still_wrong": len(df[(df["True label"] != df["Original pred"]) & (df[col] != df["True label"])]),
+            "originally_correct_became_wrong": len(df[(df["True label"] == df["Original pred"]) & (df[col] != df["True label"])]),
+            "originally_wrong_became_correct": len(df[(df["True label"] != df["Original pred"]) & (df[col] == df["True label"])]),
         }
     return {
         "model": model_name,
@@ -62,5 +66,40 @@ def plot(results):
 files = ["detailed_predictions_modelA.csv", "detailed_predictions_modelB.csv", "detailed_predictions_modelC.csv", "detailed_predictions_modelD.csv"]
 results = [load_and_process_data(file) for file in files]
 plot(results)
+
+label_counts = {}
+for label in os.listdir(data_dir):
+    label_path = os.path.join(data_dir, label)
+    if os.path.isdir(label_path):
+        image_count = len([
+            f for f in os.listdir(label_path)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+        ])
+        label_name = label_map.get(label, f"Class {label}")
+        label_counts[label_name] = image_count
+
+sorted_label_ids = sorted(label_map.keys(), key=lambda x: int(x))
+sorted_labels = [label_map[i] for i in sorted_label_ids if label_map[i] in label_counts]
+sorted_counts = [label_counts[label_map[i]] for i in sorted_label_ids if label_map[i] in label_counts]
+average_count = sum(sorted_counts) / len(sorted_counts)
+
+plt.figure(figsize=(20, 10))
+bars = plt.bar(sorted_labels, sorted_counts, color="#5B9BD5", edgecolor="black", width=0.6)
+plt.axhline(average_count, color='red', linestyle='--', linewidth=1.5, label=f'Average = {average_count:.1f}')
+plt.xticks(rotation=75, ha='right', fontsize=9)
+plt.ylabel("Number of Training Images", fontsize=12)
+plt.title("Training Data Distribution", fontsize=16, weight='bold', pad=7)
+
+for bar in bars:
+    yval = bar.get_height()
+    if yval > 0:
+        plt.text(bar.get_x() + bar.get_width()/2, yval + 1, str(yval),
+                 ha='center', va='bottom', fontsize=8)
+
+plt.legend()
+plt.grid(axis="y", linestyle="--", alpha=0.4)
+plt.tight_layout()
+plt.box(False)
+plt.show()
 
 
