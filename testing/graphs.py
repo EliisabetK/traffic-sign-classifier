@@ -78,23 +78,28 @@ for label in os.listdir(data_dir):
         label_name = label_map.get(label, f"Class {label}")
         label_counts[label_name] = image_count
 
-sorted_label_ids = sorted(label_map.keys(), key=lambda x: int(x))
-sorted_labels = [label_map[i] for i in sorted_label_ids if label_map[i] in label_counts]
-sorted_counts = [label_counts[label_map[i]] for i in sorted_label_ids if label_map[i] in label_counts]
+plt.rcParams["font.family"] = "Times New Roman"
+
+label_counts_cap = {label.title(): count for label, count in label_counts.items()}
+sorted_items = sorted(label_counts_cap.items(), key=lambda x: x[1], reverse=True)
+sorted_labels = [item[0] for item in sorted_items]
+sorted_counts = [item[1] for item in sorted_items]
+
 average_count = sum(sorted_counts) / len(sorted_counts)
 
 plt.figure(figsize=(20, 10))
 bars = plt.bar(sorted_labels, sorted_counts, color="#5B9BD5", edgecolor="black", width=0.6)
 plt.axhline(average_count, color='red', linestyle='--', linewidth=1.5, label=f'Average = {average_count:.1f}')
-plt.xticks(rotation=75, ha='right', fontsize=9)
-plt.ylabel("Number of Training Images", fontsize=12)
-plt.title("Training Data Distribution", fontsize=16, weight='bold', pad=7)
+plt.xticks(rotation=75, ha='right', fontsize=12)
+plt.ylabel("Number of Training Images", fontsize=14)
+plt.xlabel("Class Label", fontsize=14)
+plt.title("Training Data Distribution", fontsize=16, weight='bold', pad=3)
 
 for bar in bars:
     yval = bar.get_height()
     if yval > 0:
         plt.text(bar.get_x() + bar.get_width()/2, yval + 1, str(yval),
-                 ha='center', va='bottom', fontsize=8)
+                 ha='center', va='bottom', fontsize=12)
 
 plt.legend()
 plt.grid(axis="y", linestyle="--", alpha=0.4)
