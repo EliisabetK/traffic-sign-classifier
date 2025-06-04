@@ -5,11 +5,11 @@ filename = "feedback.csv"
 df = pd.read_csv(filename)
 
 agree_columns = {
-    "Q1: The goals of the lab and homework were clearly defined and communicated": "Goals were clearly defined (Q1)",
-    "Q2: The instructions of the lab and homework were clearly defined and easy to follow": "Instructions were clearly defined (Q2)",
+    "Q1: The goals of the lab and homework were clearly defined and communicated": "Goals were clear(Q1)",
+    "Q2: The instructions of the lab and homework were clearly defined and easy to follow": "Instructions were clear (Q2)",
     "Q5: The technical setup process was easy": "Setup was easy (Q5)",
     "Q7: The concept of metamorphic testing was understandable after completing this lab": "MT was understandable (Q7)",
-    "Q9: Overall, what I learned in the lab is relevant for working in the software industry": "Lab was relevant to industry (Q9)"
+    "Q9: Overall, what I learned in the lab is relevant for working in the software industry": "Lab was industry relevant (Q9)"
 }
 
 df.rename(columns=agree_columns, inplace=True)
@@ -22,8 +22,8 @@ percentages = counts.T
 colors = {
     "Disagree": "#f94144", "Somewhat disagree": "#FD9F2C", "Somewhat agree": "#F1E868","Agree": "#90be6d"}
 
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams["font.size"] = 13
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.size"] = 16
 
 # Agree/disagree chart
 plt.figure(figsize=(12, 6))
@@ -34,12 +34,12 @@ for response in response_order:
     bottom = percentages[response] if bottom is None else bottom + percentages[response]
 
 plt.title("Response Distribution by Question", fontsize=17)
-plt.ylabel("Percentage of Responses (%)", fontsize=14)
-plt.xlabel("Question", fontsize=14)
-plt.xticks(rotation=30, ha="right", fontsize=12)
-plt.yticks(fontsize=12)
+plt.ylabel("Percentage of Responses (%)", fontsize=16)
+plt.xlabel("Question", fontsize=16)
+plt.xticks(rotation=30, ha="right", fontsize=16)
+plt.yticks(fontsize=14)
 plt.ylim(0, 100)
-plt.legend(title="Response", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=12)
+plt.legend(title="Response", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=14)
 plt.tight_layout()
 plt.show()
 
@@ -49,11 +49,11 @@ q6_counts = df["Q6: How long did completing the homework take you?"].value_count
 q6_counts = q6_counts.reindex(time_order).dropna()
 plt.figure(figsize=(8, 4))
 plt.bar(q6_counts.index, q6_counts.values, color="#5B9BD5", width=0.6)
-plt.title("Homework Completion Time", fontsize=17)
-plt.ylabel("Percentage of Responses (%)", fontsize=14)
+plt.title("Homework Completion Time", fontsize=16)
+plt.ylabel("Percentage of Responses (%)", fontsize=16)
 plt.xlabel("Time Spent", fontsize=14)
-plt.xticks(rotation=0, ha="center", fontsize=12)
-plt.yticks(fontsize=12)
+plt.xticks(rotation=0, ha="center", fontsize=16)
+plt.yticks(fontsize=14)
 plt.ylim(0, max(q6_counts.values) + 5)
 plt.grid(axis="y", linestyle="--", alpha=0.6)
 plt.tight_layout()
@@ -73,11 +73,11 @@ q4_counts = q4_counts.reindex(difficulty_order).dropna()
 
 plt.figure(figsize=(8, 4))
 plt.bar(q4_counts.index, q4_counts.values, color="#5B9BD5", width=0.6)
-plt.title("Homework Difficulty Compared to Previous", fontsize=17)
-plt.ylabel("Percentage of Responses (%)", fontsize=14)
-plt.xlabel("Perceived Difficulty", fontsize=14)
-plt.xticks(rotation=0, ha="center", fontsize=12)
-plt.yticks(fontsize=12)
+plt.title("Homework Difficulty Compared to Previous", fontsize=16)
+plt.ylabel("Percentage of Responses (%)", fontsize=16)
+plt.xlabel("Perceived Difficulty", fontsize=16)
+plt.xticks(rotation=0, ha="center", fontsize=14)
+plt.yticks(fontsize=14)
 plt.ylim(0, max(q4_counts.values) + 5)
 plt.grid(axis="y", linestyle="--", alpha=0.6)
 plt.tight_layout()
